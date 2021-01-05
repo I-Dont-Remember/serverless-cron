@@ -14,6 +14,17 @@ provider:
         - sns:Publish
       Resource:
         - arn:aws:sns:*:*:*
+    - Effect: Allow
+      Action:
+        - lambda:InvokeFunction
+      Resource:
+        Fn::Join:
+          - ""
+          - - "arn:aws:lambda:"
+            - Ref: AWS::Region
+            - ":"
+            - Ref: AWS::AccountId
+            - ":function:personal-cron-*"
   #   - Effect: Allow
   #     Action:
   #       - dynamodb:Query
@@ -44,6 +55,8 @@ functions:
     environment:
       SNS_TOPIC_ARN: arn:aws:sns:us-east-1:174225498255:KivaNotifier
       ISO_CODES: BD,BT,BZ,CA,GU,LA,NA,SS,TR,VI,ZA
+  slack_keyword_rank:
+    handler: slack_keyword_rank/main.lambda_handler
 
 plugins:
   - serverless-python-requirements
