@@ -1,0 +1,49 @@
+service: personal-cron
+
+provider:
+  name: aws
+  runtime: python3.7
+  stage: dev
+  region: us-east-1
+  memorySize: 128
+  iamManagedPolicies:
+    - "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
+  iamRoleStatements: # TODO: if this becomes used a lot, restrict roles per function or rename any relevant infrastructure to be cron-* prefixed
+    - Effect: Allow
+      Action:
+        - sns:Publish
+      Resource:
+        - arn:aws:sns:*:*:*
+  #   - Effect: Allow
+  #     Action:
+  #       - dynamodb:Query
+  #       - dynamodb:Scan
+  #       - dynamodb:GetItem
+  #     Resource:
+  #       Fn::Join:
+  #         - ""
+  #         - - "arn:aws:dynamodb:"
+  #           - Ref: AWS::Region
+  #           - ":"
+  #           - Ref: AWS::AccountId
+  #           - ":table/*"
+
+package:
+  individually: false
+  include:
+    - '!./**'
+    - './**.py'
+  exclude:
+    - '**'
+
+functions:
+  kiva:
+    handler: kiva_checker/main.main
+    events:
+      - schedule: rate(10 days)
+    environment:
+      SNS_TOPIC_ARN: arn:aws:sns:us-east-1:174225498255:KivaNotifier
+      ISO_CODES: BD,BT,BZ,CA,GU,LA,NA,SS,TR,VI,ZA
+
+plugins:
+  - serverless-python-requirements
