@@ -3,6 +3,8 @@ import os
 import json
 import urllib.parse
 from datetime import datetime
+import traceback
+from datetime import datetime
 
 import requests
 from bs4 import BeautifulSoup
@@ -14,6 +16,9 @@ app_name_map = {
 }
 
 LAMBDA_NAME = 'personal-cron-dev-slack_keyword_rank'
+DATA_TABLE_NAME = 'slack-keyword-searches'
+PARTITION_KEY = 'query_term'
+SORT_KEY = 'date'
 
 SLACK_WEBHOOK_URL = os.environ['SLACK_WEBHOOK_URL']
 
@@ -36,6 +41,8 @@ def lambda_handler(event, context):
         # TODO: better handled with a state machine that limits concurrency, but for now keep it simple
         for qr in query_requests:
             qr['action'] = 'scrape'
+            if event.get('send_notification'):
+                qr['send_notification'] = True
             invoke_individual_run(qr)
     else:
         logger.error('[!] idk what to do with this event it is not expected')
@@ -85,9 +92,7 @@ def fetch_webpage(url, params):
 def check_term(event, query_term):
     app_ids = event.get('apps')
     page_content = fetch_webpage(SLACK_BASE_URL, {'q': query_term})
-    soup = BeautifulSoup(page_content, 'html.parser')
-    scrape_date = str(datetime.utcnow()) + " UTC"
-    
+    soup = BeautifulSoup(page_content, 'html.parser')    
     app_rows = soup.select('.app_row')
     num_apps = len(app_rows)
     logger.info(f'Found {num_apps} app results for search term')
@@ -105,7 +110,35 @@ def check_term(event, query_term):
     for not_found in app_ids:
         results.append({'app_id': not_found, 'search_rank': 'Not found in search'})
 
-    send_term_notification(event, query_term, results)
+    try:
+        # TODO: start with just saving page content, would be smart to have a schema in future
+        # for just the app data that matters
+        save_search_data(query_term, app_rows)
+    except Exception as e:
+        traceback.print_exc()
+        logger.error('Ruh roh raggy: {}. Didnt save but keep running', e)
+
+    if event.get('send_notification'):
+        # don't spam myself
+        send_term_notification(event, query_term, results)
+
+def save_search_data(query_term, data):
+    if os.environ.get('LOCAL'):
+        logger.debug('saving data boii')
+    else:    
+        # save the page content for now, then switch it to json in the future
+        dynamodb = boto3.resource('dynamodb')
+        table = dynamodb.Table(DATA_TABLE_NAME)
+
+        # use utc so I don't have to care about timezones ever
+        date = str(datetime.utcnow().date())
+        item = {
+            PARTITION_KEY: query_term,
+            SORT_KEY: date,
+            'data': data
+        }
+        resp = table.put_item(Item=item)
+        logger.info(resp)
 
 
 def send_term_notification(event, query_term, results):
@@ -117,12 +150,12 @@ def send_term_notification(event, query_term, results):
     # if event.get('slack_webhook'):
     #     raise ValueError('[!] cant send a message without a webhook')
 
-    msg = f'*Search ranks for query term `{query_term}`:*\n'
+    msg = f'*Search ranks for query term `{}`:*\n'
     for r in results:
         msg += f'\n>{app_name_map.get(r["app_id"], r["app_id"])}: {r["search_rank"]}'
         if r.get('total_results'):
             msg += f'/{r["total_results"]}'
-    blocks = [
+    blocks = [query_term
         {
             'type': 'section',
             'text': {
