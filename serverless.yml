@@ -6,6 +6,7 @@ provider:
   stage: dev
   region: us-east-1
   memorySize: 128
+  timeout: 25
   iamManagedPolicies:
     - "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
   iamRoleStatements: # TODO: if this becomes used a lot, restrict roles per function or rename any relevant infrastructure to be cron-* prefixed
@@ -55,8 +56,19 @@ functions:
     environment:
       SNS_TOPIC_ARN: arn:aws:sns:us-east-1:174225498255:KivaNotifier
       ISO_CODES: BD,BT,BZ,CA,GU,LA,NA,SS,TR,VI,ZA
+
   slack_keyword_rank:
     handler: slack_keyword_rank/main.lambda_handler
+    environment:
+      query_requests: '[{"query": "schedule message", "apps": ["AK7KWDFU3"]}, {"query": "recurring message", "apps": ["AK7KWDFU3"]}]'
+      SLACK_WEBHOOK_URL: ${env:SLACK_WEBHOOK_URL}
+    events:
+      - schedule: 
+          rate: rate(2 days)
+          input:
+            action: cron
+
 
 plugins:
   - serverless-python-requirements
+  - serverless-dotenv-plugin

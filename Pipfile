@@ -9,6 +9,7 @@ name = "pypi"
 requests = "*"
 boto3 = "*"
 bs4 = "*"
+loguru = "*"
 
 [requires]
 python_version = "3.7"
