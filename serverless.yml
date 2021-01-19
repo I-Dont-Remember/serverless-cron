@@ -64,9 +64,11 @@ functions:
     handler: slack_keyword_rank/main.lambda_handler
     layers:
       - { Ref: PythonRequirementsLambdaLayer }
+    timeout: 60
     environment:
-      query_requests: '[{"query": "schedule message", "apps": ["AK7KWDFU3"]}, {"query": "recurring message", "apps": ["AK7KWDFU3"]}]'
-      SLACK_WEBHOOK_URL: ${env:SLACK_WEBHOOK_URL}
+      # query_requests: '[{"query": "schedule message", "apps": ["AK7KWDFU3"]}, {"query": "recurring message", "apps": ["AK7KWDFU3"]}]'
+      SHEETY_URL: ${env:SHEETY_URL}
+      SHEETY_BEARER_TOKEN: ${env:SHEETY_BEARER_TOKEN}
     events:
       - schedule: 
           rate: rate(3 days)

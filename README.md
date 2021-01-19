@@ -21,7 +21,8 @@ The main service deploys to AWS Lambdas, though depending on the task it would m
 * Create a .env file with:
 
 ```text
-SLACK_WEBHOOK_URL=<>
+SHEETY_URL=<>
+SHEETY_BEARER_TOKEN=<>
 ```
 
 ## Dependencies
