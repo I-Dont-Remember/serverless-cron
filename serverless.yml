@@ -64,7 +64,7 @@ functions:
       SLACK_WEBHOOK_URL: ${env:SLACK_WEBHOOK_URL}
     events:
       - schedule: 
-          rate: rate(2 days)
+          rate: rate(4 days)
           input:
             action: cron
 

@@ -15,6 +15,15 @@ The main service deploys to AWS Lambdas, though depending on the task it would m
 * `kiva_checker/` - check if loans have shown up for the countries I haven't gotten yet
 * `slack_keyword_rank/` - scrape Slack App Directory for app rank on a specific keyword
 
+## Setup/ Installation
+
+* Use the Pipfile to create virtual environment for local runs
+* Create a .env file with:
+
+```text
+SLACK_WEBHOOK_URL=<>
+```
+
 ## Dependencies
 
 Keep life as simple as possible, I have a single dependencies file, no layers or junk, and just add to it when needed. Odds are this project will fall apart after 10 minutes of use, so no need to get fancy with the infra.
