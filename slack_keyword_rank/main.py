@@ -37,8 +37,13 @@ def lambda_handler(event, context):
         # for each term, kick off a scraper - scaling, do this last
         query_requests = get_query_requests_to_check()
         logger.info("Running {} queries", len(query_requests))
-        print(query_requests)
+
         # TODO: better handled with a state machine that limits concurrency, but for now keep it simple
+        if len(query_requests) < 50:
+            small_batch = True
+        else:
+            small_batch = False
+
         for qr in query_requests:
             qr["action"] = "scrape"
             # #TODO: adjust the App Id setting to be a list so i can handle multiple in the future
@@ -46,7 +51,7 @@ def lambda_handler(event, context):
             # if i want to run and update data without annoying anyone i can leave it off
             if event.get("send_notification"):
                 qr["send_notification"] = True
-            invoke_individual_run(qr)
+            invoke_individual_run(qr, small_batch=small_batch)
     else:
         logger.error("[!] idk what to do with this event it is not expected")
 
@@ -80,21 +85,19 @@ def get_query_requests_to_check():
         ]
 
     # Load from sheety.co api that sits on top of GlideApps Spreadsheet
-    queries_url = os.environ['SHEETY_URL']
+    queries_url = os.environ["SHEETY_URL"]
     headers = {"Authorization": f'Bearer {os.environ["SHEETY_BEARER_TOKEN"]}'}
     resp = requests.get(queries_url, headers=headers)
     if resp.status_code == 200:
         data = resp.json()
-        return data['queries']
+        return data["queries"]
     else:
         logger.error("Failed fetching from sheety - {}:{}", resp.status_code, resp.text)
         raise ValueError("Could not get queries to run from Google Sheet")
 
 
-
-def invoke_individual_run(qr):
+def invoke_individual_run(qr, small_batch=False):
     # until i have a lot, there's not really a point to farm out the work, it's just good practice
-    small_batch = True
     payload = json.dumps(qr)
     logger.debug("Invoke for query: {}", payload)
     if os.environ.get("LOCAL") or small_batch:
@@ -133,21 +136,38 @@ def fetch_webpage(url, params):
 def check_term(event, query_term):
     app_ids = event.get("apps")
     page_content = fetch_webpage(SLACK_BASE_URL, {"q": query_term})
+    # at 128mb, parsing a full page takes 10s
     soup = BeautifulSoup(page_content, "html.parser")
     app_rows = soup.select(".app_row")
     num_apps = len(app_rows)
     logger.info(f"Found {num_apps} app results for search term")
 
     results = []
-    for row in app_rows:
-        curr_id = row.attrs.get("data-app-id")
+    # app data gets saved in storage
+    search_data = []
+    for r in app_rows:
+        curr_id = r.attrs.get("data-app-id")
+        # TODO: brittle as hell
+        pretty_name = r.select('.media_list_title')[0].text.replace('\n', '').strip()
+        pretty_tagline = r.select('.media_list_subtitle')[0].text.replace('\n', '').strip() 
+        search_rank = r.attrs.get("data-position")
+        search_data.append({
+            "app_name": r.attrs.get('data-app-name'), 
+            "title": pretty_name,
+            'tagline': pretty_tagline,
+            'app_rank': search_rank,
+            'app_id': curr_id,
+            'slack_owned': r.attrs.get('data-app-is-slack-owned')
+        })
+
         if curr_id in app_ids:
             print(curr_id)
-            rank = row.attrs.get("data-position")
             results.append(
-                {"app_id": curr_id, "search_rank": rank, "total_results": num_apps}
+                {"app_id": curr_id, "search_rank": search_rank, "total_results": num_apps}
             )
             app_ids.remove(curr_id)
+        
+ 
 
     # handle ones not found on page
     for not_found in app_ids:
@@ -156,7 +176,7 @@ def check_term(event, query_term):
     try:
         # TODO: start with just saving page content, would be smart to have a schema in future
         # for just the app data that matters
-        save_search_data(query_term, app_rows)
+        save_search_data(query_term, search_data)
     except Exception as e:
         traceback.print_exc()
         logger.error("Ruh roh raggy: {}. Didnt save but keep running", e)
@@ -168,18 +188,23 @@ def check_term(event, query_term):
         logger.info("Not sending notification intentionally")
 
 
-def save_search_data(query_term, data):
+def save_search_data(query_term, search_data):
+    # does it matter if multiple have same term? it's repeated work, but results should be same. Not a big deal.
     if os.environ.get("LOCAL"):
-        logger.debug("mock saving data")
+        logger.debug("mock saving data: {}", search_data)
     else:
         # save the page content for now, then switch it to json in the future
         dynamodb = boto3.resource("dynamodb")
         table = dynamodb.Table(DATA_TABLE_NAME)
 
         # use utc so I don't have to care about timezones ever
-        date = str(datetime.utcnow().date())
-        item = {PARTITION_KEY: query_term, SORT_KEY: date, "data": data}
-        resp = table.put_item(Item=item)
+        utc_date = str(datetime.utcnow().date())
+        new_item = {PARTITION_KEY: query_term, SORT_KEY: utc_date}
+        logger.info("item without search_data: {}", new_item)
+        new_item["search_data"] = search_data
+        resp = table.put_item(
+            Item=new_item
+        )
         logger.info(resp)
 
 
@@ -193,17 +218,19 @@ def send_term_notification(event, query_term, results):
     # if event.get('slack_webhook'):
     #     raise ValueError('[!] cant send a message without a webhook')
     app_name_map = {}
-    if event.get('appMappings'):
+    if event.get("appMappings"):
         try:
-            mappings = event.get('appMappings').split(',')
+            mappings = event.get("appMappings").split(",")
             for mapping in mappings:
-                app_id, name = mapping.split(':')
+                app_id, name = mapping.split(":")
                 app_name_map[app_id] = name
         except Exception as e:
             bad_map_formatting = True
             traceback.print_exc()
-            logger.error("Ruh roh raggy - Mapping format was messsed up so sending only as ids: {}", e)
-
+            logger.error(
+                "Ruh roh raggy - Mapping format was messsed up so sending only as ids: {}",
+                e,
+            )
 
     msg = f"*Search ranks for query term `{query_term}`:*\n"
     for r in results:
@@ -212,19 +239,21 @@ def send_term_notification(event, query_term, results):
             msg += f'/{r["total_results"]}'
     blocks = [{"type": "section", "text": {"type": "mrkdwn", "text": msg}}]
     if bad_map_formatting:
-        blocks.append({
-			"type": "context",
-			"elements": [
-				{
-					"type": "mrkdwn",
-					"text": "_:warning: Your app mapping format is incorrect, so only able to display App Id_"
-				}
-			]
-		})
+        blocks.append(
+            {
+                "type": "context",
+                "elements": [
+                    {
+                        "type": "mrkdwn",
+                        "text": "_:warning: Your app mapping format is incorrect, so only able to display App Id_",
+                    }
+                ],
+            }
+        )
     data = {"text": "Updated keyword ranks for your apps.", "blocks": blocks}
     logger.debug(json.dumps(data))
-    if not os.environ.get("LOCAL") and event.get('slackWebhookUrl'):
-        resp = requests.post(event.get('slackWebhookUrl'), json=data)
+    if not os.environ.get("LOCAL") and event.get("slackWebhookUrl"):
+        resp = requests.post(event.get("slackWebhookUrl"), json=data)
         logger.info("{}: {}", resp.status_code, resp.text)
 
 
