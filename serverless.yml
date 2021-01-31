@@ -65,16 +65,27 @@ functions:
     layers:
       - { Ref: PythonRequirementsLambdaLayer }
     timeout: 120
+    memorySize: 512
     environment:
       # query_requests: '[{"query": "schedule message", "apps": ["AK7KWDFU3"]}, {"query": "recurring message", "apps": ["AK7KWDFU3"]}]'
       SHEETY_URL: ${env:SHEETY_URL}
       SHEETY_BEARER_TOKEN: ${env:SHEETY_BEARER_TOKEN}
+      FAUNA_SECRET: ${env:FAUNA_SECRET}
     events:
       - schedule: 
-          rate: rate(3 days)
+          rate: rate(2 days)
           input:
             action: cron
             send_notification: true
+      # - http:
+      #     method: get
+      #     path: /keyword-rank
+      #     request:
+      #       parameters:
+      #         querystrings:
+      #           q: true
+      #           app_id: true
+      #           history: false
 
 custom:
   pythonRequirements:

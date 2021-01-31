@@ -10,6 +10,7 @@ requests = "*"
 boto3 = "*"
 bs4 = "*"
 loguru = "*"
+faunadb = "*"
 
 [requires]
 python_version = "3.7"
