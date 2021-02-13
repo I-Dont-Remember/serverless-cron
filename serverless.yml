@@ -73,19 +73,21 @@ functions:
       FAUNA_SECRET: ${env:FAUNA_SECRET}
     events:
       - schedule: 
-          rate: rate(2 days)
+          rate: rate(1 days)
           input:
             action: cron
             send_notification: true
       # - http:
-      #     method: get
-      #     path: /keyword-rank
+      #     method: post
+      #     path: /slack-keyword-rank/run/{ref_id}
       #     request:
       #       parameters:
-      #         querystrings:
-      #           q: true
-      #           app_id: true
-      #           history: false
+      #         paths:
+      #           ref_id: true
+          #     querystrings:
+          #       q: true
+          #       app_id: true
+          #       history: false
 
 custom:
   pythonRequirements:

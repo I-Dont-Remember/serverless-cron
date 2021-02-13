@@ -94,7 +94,7 @@ def get_all_keyword_docs():
     keyword_list = []
     if os.environ.get("LOCAL"):
         logger.debug("returning mock keyword docs")
-        keyword_list = [{'ref': Ref('289109122272461316', 'keywords'), 'ts': 1611974794560000, 'data': {'keyword': 'recurring message', 'app_id': 'AK7KWDFU3', 'rank_data': [{'date': '2021-01-26', 'rank': 4, 'total_results': 13}, {'date': '2021-01-24', 'rank': 6, 'total_results': 13}, {'date': '2021-01-22', 'rank': 8, 'total_results': 13}]}}]
+        keyword_list = [{'ref': Ref('289109122272461316', 'keywords'), 'ts': 1611974794560000, 'data': {'keyword': 'recurring message', 'app_id': 'AK7KWDFU3', 'slack_webhook': 'https://fake-webhook.com', 'rank_data': [{'date': '2021-01-26', 'rank': 4, 'total_results': 13}, {'date': '2021-01-24', 'rank': 6, 'total_results': 13}, {'date': '2021-01-22', 'rank': 8, 'total_results': 13}]}}]
     else:
         index_name = 'all_keywords'
         adminClient = FaunaClient(secret=FAUNA_SECRET)
@@ -339,12 +339,15 @@ def send_term_notification(event, query_term, results):
         )
     data = {"text": "Updated keyword ranks for your apps.", "blocks": blocks}
     logger.debug(json.dumps(data))
-    if not os.environ.get("LOCAL") and event.get("slackWebhookUrl"):
-        resp = requests.post(event.get("slackWebhookUrl"), json=data)
+    # sheety used 'slackWebhookUrl'
+    if not os.environ.get("LOCAL") and event.get("slack_webhook"):
+        resp = requests.post(event.get("slack_webhook"), json=data)
         logger.info("{}: {}", resp.status_code, resp.text)
 
 
 def api(event):
+    # TODO: this job is decently slow. Simple solution is to accept a ref id, then you pull that item and run the job.
+    # DOn't return anything but a 200 that you accepted the work
     logger.debug("API not implemented")
     # query_term = event['queryStringParameters'].get('q')
     # # if no app_id, just return the whole search item
