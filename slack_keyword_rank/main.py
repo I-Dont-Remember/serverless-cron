@@ -94,7 +94,33 @@ def get_all_keyword_docs():
     keyword_list = []
     if os.environ.get("LOCAL"):
         logger.debug("returning mock keyword docs")
-        keyword_list = [{'ref': Ref('289109122272461316', 'keywords'), 'ts': 1611974794560000, 'data': {'keyword': 'recurring message', 'app_id': 'AK7KWDFU3', 'slack_webhook': 'https://fake-webhook.com', 'rank_data': [{'date': '2021-01-26', 'rank': 4, 'total_results': 13}, {'date': '2021-01-24', 'rank': 6, 'total_results': 13}, {'date': '2021-01-22', 'rank': 8, 'total_results': 13}]}}]
+        keyword_list = [
+            {'ref': Ref('289109122272461316', 'keywords'), 'ts': 1611974794560000, 'data': {'keyword': 'recurring message', 'app_id': 'AK7KWDFU3', 'slack_webhook': 'https://fake-webhook.com', 'rank_data': [{'date': '2021-01-26', 'rank': 4, 'total_results': 13}, {'date': '2021-01-24', 'rank': 6, 'total_results': 13}, {'date': '2021-01-22', 'rank': 8, 'total_results': 13}]}},
+            {
+                "ts": 1613230833160000,
+                "data": {
+                    "keyword": "scheduled message",
+                    "app_id": "AK7KWDFU3",
+                    "slack_webhook": "https://hooks.slack.com/services/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",
+                    "rank_data": [],
+                },
+                "permissions": {
+                    "read": Ref(
+                        '290425396619379203',
+                        'users'
+                    ),
+                    "write": Ref(
+                        '290425396619379203',
+                        'users'
+                    ),
+                },
+                "keyword": "scheduled message",
+                "app_id": "AK7KWDFU3",
+                "slack_webhook": "https://hooks.slack.com/services/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",
+                "rank_data": [],
+                "ref": Ref('290426174204543494', 'keywords'),
+            }    
+        ]
     else:
         index_name = 'all_keywords'
         adminClient = FaunaClient(secret=FAUNA_SECRET)
@@ -107,9 +133,15 @@ def get_all_keyword_docs():
         for k,v in keyword['data'].items():
             keyword[k] = v
     
-        # Ref isn't json-able, adjust it  
+        # certain things like Ref aren't json-able, adjust or remove if not needed
         keyword['ref_id'] = keyword['ref'].id()
         del keyword['ref']
+        try:
+            del keyword['permissions']
+        except KeyError:
+            pass
+
+
     return keyword_list
 
 def update_rank_data(doc, new_rank_data):
@@ -129,7 +161,7 @@ def update_rank_data(doc, new_rank_data):
     else:
         adminClient = FaunaClient(secret=FAUNA_SECRET)
         res = adminClient.query(q.update(q.ref(q.collection(KEYWORD_COLLECTION), doc['ref_id']), {"data": update_data}))
-        logger.info(res)
+        logger.info('Resp: {}', res)
 
 
 def get_table_client():
@@ -182,7 +214,12 @@ def get_query_requests_to_check():
 
 def invoke_individual_run(k, small_batch=False):
     # until i have a lot, there's not really a point to farm out the work, it's just good practice
-    payload = json.dumps(k)
+    try:
+        payload = json.dumps(k)
+    except Exception as e:
+        logger.error('Bad json event: {}', k)
+        raise
+
     logger.debug("Invoke for keyword: {}", payload)
     if os.environ.get("LOCAL") or small_batch:
         logger.debug("Running event in same invocation, not starting new ones")
