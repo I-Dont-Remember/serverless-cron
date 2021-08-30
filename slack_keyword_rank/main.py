@@ -101,7 +101,7 @@ def get_all_keyword_docs():
                 "data": {
                     "keyword": "scheduled message",
                     "app_id": "AK7KWDFU3",
-                    "slack_webhook": "https://hooks.slack.com/services/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",
+                    "slack_webhook": "https://hooks.fakeslack.com/services/TKM6AU1FG/B01KF8WHBHP/AAAAAAAAAAAAAAAAAA",
                     "rank_data": [],
                 },
                 "permissions": {
@@ -116,7 +116,7 @@ def get_all_keyword_docs():
                 },
                 "keyword": "scheduled message",
                 "app_id": "AK7KWDFU3",
-                "slack_webhook": "https://hooks.slack.com/services/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",
+                "slack_webhook": "https://hooks.fakeslack.com/services/TKM6AU1FG/B01KF8WHBHP/AAAAAAAAAAAAAAAAAAAAAAAAAAA",
                 "rank_data": [],
                 "ref": Ref('290426174204543494', 'keywords'),
             }    
