@@ -40,31 +40,34 @@ def main(event, context):
     r = requests.post(kiva_url, json={"query": query}, headers=headers)
     # empty response {'data': {'lend': {'loans': {'totalCount': 0, 'values': []}}}}
     # if it finds totalCount > 0, it publishes to SNS topic? send me email?
+
+    outcome_msg = "None found, drat"
     if r.status_code == 200:
         data = r.json()
         print(data)
         try:
             total_count = data["data"]["lend"]["loans"]["totalCount"]
         except KeyError as e:
-            print("[!] failed with KeyError %s" % e)
-            return
+            outcome_msg = "[!] failed with KeyError %s" % e
+            return outcome_msg
 
         if total_count > 0:
+            # https://www.kiva.org/lend?country=BD,BT,BZ,CA,CL,GU,LA,SS,VI,ZA
             print("Found loans, notify Kevin")
-            msg = 'Loans found in these countries %s' % ISO_CODES
+            base_url = 'https://www.kiva.org/lend?country='
+            outcome_msg = f'Loans found in these countries {base_url}{ISO_CODES}'
             sns = boto3.client('sns')
-            
             response = sns.publish(
                 TopicArn=SNS_TOPIC_ARN,    
-                Message=msg,    
+                Message=outcome_msg,    
             )
         else:
-            print("None found, drat")
-
+            outcome_msg = "None found, drat"
     else:
-        print("[!] request failed with status %d" % r.status_code)
+        outcome_msg = "[!] request failed with status %d" % r.status_code
         
-    return
+    print(outcome_msg)
+    return outcome_msg
 
 if __name__ == "__main__":
     main(None, None)

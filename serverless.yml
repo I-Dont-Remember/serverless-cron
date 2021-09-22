@@ -58,7 +58,7 @@ functions:
       - schedule: rate(10 days)
     environment:
       SNS_TOPIC_ARN: arn:aws:sns:us-east-1:174225498255:KivaNotifier
-      ISO_CODES: BD,BT,BZ,CA,GU,LA,NA,SS,TR,VI,ZA
+      ISO_CODES: BD,BT,BZ,CA,CL,GU,LA,SS,VI,ZA
 
   slack_keyword_rank:
     handler: slack_keyword_rank/main.lambda_handler

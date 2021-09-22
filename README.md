@@ -10,6 +10,8 @@ Make it as simple as possible for me to go from having an idea of a job that sho
 
 The main service deploys to AWS Lambdas, though depending on the task it would make sense to also hook up Cloudflare Workers to be managed in this repo as well. Why split things across a million repos, it just makes it harder to organize.
 
+HOLD UP!! --> Autocode or Replit might be a better spot for these kind of things so I don't have to ever worry about deployments or the like. This works fine for now though.
+
 ## Jobs
 
 * `kiva_checker/` - check if loans have shown up for the countries I haven't gotten yet
